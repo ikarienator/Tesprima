@@ -1,2 +1,2 @@
-/usr/local/share/npm/bin/tsc src/tesprima.ts --sourcemap --out tesprima.js
+/usr/local/bin/node build/tsc.js @build.config --module amd --out tesprima.js src/tesprima.ts
 cat src/fixture.js >> tesprima.js
