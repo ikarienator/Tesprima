@@ -2,5 +2,6 @@ TEsprima is a JavaScript parser written in TypeScript adapted from [Esprima](htt
 
 Features
 --------
-* Compatible with Esprima 1.1.0.
+* Compatible with Esprima 1.0.0.
 * Separation of AST, Lexer, Parser and Driver.
+* Passes all the units of Esprima.
