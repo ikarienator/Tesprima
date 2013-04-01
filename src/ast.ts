@@ -110,7 +110,7 @@ module TypedEsprima {
         static WithStatement = 'WithStatement';
     }
 
-    export interface Node {
+    export interface ASTNode {
         type:string;
         loc?:TextRange;
         range?:number[];
@@ -118,11 +118,11 @@ module TypedEsprima {
         groupRange?:number[];
     }
 
-    export interface Statement extends Node {
+    export interface Statement extends TypedEsprima.ASTNode {
 
     }
 
-    export interface Expression extends Node {
+    export interface Expression extends TypedEsprima.ASTNode {
 
     }
 
@@ -159,9 +159,9 @@ module TypedEsprima {
         arguments:Expression[];
     }
 
-    export interface CatchClause extends Node {
+    export interface CatchClause extends TypedEsprima.ASTNode {
         param:VariableDeclaration;
-        body:Statement[];
+        body:BlockStatement;
     }
 
     export interface ConditionalExpression extends Expression {
@@ -179,7 +179,7 @@ module TypedEsprima {
     }
 
     export interface DoWhileStatement extends Statement {
-        body:Statement[];
+        body:Statement;
         test:Expression;
     }
 
@@ -211,7 +211,7 @@ module TypedEsprima {
         id:Identifier;
         params:Identifier[];
         defaults:Expression[];
-        body:Statement[];
+        body:BlockStatement;
         rest;
         generator:bool;
         expression:bool;
@@ -221,7 +221,7 @@ module TypedEsprima {
         id:Identifier;
         params:Identifier[];
         defaults:Expression[];
-        body:Statement[];
+        body:BlockStatement;
         rest;
         generator:bool;
         expression:bool;
@@ -263,7 +263,7 @@ module TypedEsprima {
     }
 
 
-    export interface Program extends Node {
+    export interface Program extends TypedEsprima.ASTNode {
         body:Statement[];
     }
 
@@ -273,7 +273,7 @@ module TypedEsprima {
         Set = 1 << 2
     }
 
-    export interface Property extends Node {
+    export interface Property extends TypedEsprima.ASTNode {
         key:Primitive;
         value:Expression;
         kind:string;
@@ -287,7 +287,7 @@ module TypedEsprima {
         expressions:Expression[];
     }
 
-    export interface SwitchCase extends Node {
+    export interface SwitchCase extends TypedEsprima.ASTNode {
         test:Expression;
         consequent:Statement[];
     }
@@ -306,10 +306,10 @@ module TypedEsprima {
     }
 
     export interface TryStatement extends Statement {
-        block:Statement[];
+        block:BlockStatement;
         guardedHandlers:any[]; // Not implemented
         handlers:CatchClause[];
-        finalizer:Statement[];
+        finalizer:BlockStatement;
     }
 
     export interface UnaryExpression extends Expression {
@@ -328,7 +328,7 @@ module TypedEsprima {
         kind:string;
     }
 
-    export interface VariableDeclarator extends Node {
+    export interface VariableDeclarator extends TypedEsprima.ASTNode {
         id:Identifier;
         init:Expression;
     }
@@ -340,6 +340,6 @@ module TypedEsprima {
 
     export interface WithStatement extends Statement {
         object:Expression;
-        body:Statement[];
+        body:Statement;
     }
 }

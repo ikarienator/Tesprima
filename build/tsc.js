@@ -2384,7 +2384,7 @@ var TypeScript;
             emitter.emitParensAndCommentsInPlace(this, true);
             emitter.recordSourceMappingStart(this);
             var temp = emitter.setInObjectLiteral(false);
-            emitter.writeToOutput("while(");
+            emitter.writeToOutput("while (");
             emitter.emitJavascript(this.cond, TypeScript.TokenID.While, false);
             emitter.writeToOutput(")");
             emitter.emitJavascriptStatements(this.body, false);
@@ -2496,7 +2496,7 @@ var TypeScript;
             emitter.recordSourceMappingStart(this);
             var temp = emitter.setInObjectLiteral(false);
             emitter.recordSourceMappingStart(this.statement);
-            emitter.writeToOutput("if(");
+            emitter.writeToOutput("if (");
             emitter.emitJavascript(this.cond, TypeScript.TokenID.If, false);
             emitter.writeToOutput(")");
             emitter.recordSourceMappingEnd(this.statement);
@@ -2666,7 +2666,7 @@ var TypeScript;
             emitter.recordSourceMappingStart(this);
             var temp = emitter.setInObjectLiteral(false);
             emitter.recordSourceMappingStart(this.statement);
-            emitter.writeToOutput("for(");
+            emitter.writeToOutput("for (");
             emitter.emitJavascript(this.lval, TypeScript.TokenID.For, false);
             emitter.writeToOutput(" in ");
             emitter.emitJavascript(this.obj, TypeScript.TokenID.For, false);
@@ -2727,7 +2727,7 @@ var TypeScript;
             emitter.emitParensAndCommentsInPlace(this, true);
             emitter.recordSourceMappingStart(this);
             var temp = emitter.setInObjectLiteral(false);
-            emitter.writeToOutput("for(");
+            emitter.writeToOutput("for (");
             if(this.init) {
                 if(this.init.nodeType != TypeScript.NodeType.List) {
                     emitter.emitJavascript(this.init, TypeScript.TokenID.For, false);
@@ -2849,18 +2849,16 @@ var TypeScript;
             emitter.recordSourceMappingStart(this);
             var temp = emitter.setInObjectLiteral(false);
             emitter.recordSourceMappingStart(this.statement);
-            emitter.writeToOutput("switch(");
+            emitter.writeToOutput("switch (");
             emitter.emitJavascript(this.val, TypeScript.TokenID.Identifier, false);
             emitter.writeToOutput(")");
             emitter.recordSourceMappingEnd(this.statement);
             emitter.writeLineToOutput(" {");
-            emitter.indenter.increaseIndent();
             var casesLen = this.caseList.members.length;
             for(var i = 0; i < casesLen; i++) {
                 var caseExpr = this.caseList.members[i];
                 emitter.emitJavascript(caseExpr, TypeScript.TokenID.Case, true);
             }
-            emitter.indenter.decreaseIndent();
             emitter.emitIndent();
             emitter.writeToOutput("}");
             emitter.setInObjectLiteral(temp);
@@ -5003,7 +5001,6 @@ var TypeScript;
                 this.writeToOutput(s);
                 var c = s.charCodeAt(s.length - 1);
                 if(!((c == TypeScript.LexCodeSpace) || (c == TypeScript.LexCodeSMC) || (c == TypeScript.LexCodeLBR))) {
-                    this.writeToOutput(' ');
                 }
             } else {
                 this.outfile.WriteLine(s);
@@ -5107,7 +5104,7 @@ var TypeScript;
             if(content) {
                 this.writeLineToOutput("");
                 this.indenter.increaseIndent();
-                this.emitJavascriptList(content, ", ", TypeScript.TokenID.Comma, true, false, false);
+                this.emitJavascriptList(content, ",", TypeScript.TokenID.Comma, true, false, false);
                 this.indenter.decreaseIndent();
                 this.emitIndent();
             }
@@ -5365,21 +5362,21 @@ var TypeScript;
                 this.emitIndent();
                 this.writeToOutput("for (");
                 this.recordSourceMappingStart(lastArg);
-                this.writeToOutput("var _i = 0;");
+                this.writeToOutput("var $i = 0;");
                 this.recordSourceMappingEnd(lastArg);
                 this.writeToOutput(" ");
                 this.recordSourceMappingStart(lastArg);
-                this.writeToOutput("_i < (arguments.length - " + (argsLen - 1) + ")");
+                this.writeToOutput("$i < (arguments.length - " + (argsLen - 1) + ")");
                 this.recordSourceMappingEnd(lastArg);
                 this.writeToOutput("; ");
                 this.recordSourceMappingStart(lastArg);
-                this.writeToOutput("_i++");
+                this.writeToOutput("$i++");
                 this.recordSourceMappingEnd(lastArg);
                 this.writeLineToOutput(") {");
                 this.indenter.increaseIndent();
                 this.emitIndent();
                 this.recordSourceMappingStart(lastArg);
-                this.writeToOutput(lastArg.id.actualText + "[_i] = arguments[_i + " + (argsLen - 1) + "];");
+                this.writeToOutput(lastArg.id.actualText + "[$i] = arguments[$i + " + (argsLen - 1) + "];");
                 this.recordSourceMappingEnd(lastArg);
                 this.writeLineToOutput("");
                 this.indenter.decreaseIndent();
@@ -5450,6 +5447,7 @@ var TypeScript;
                             this.emittingFileName = modFilePath;
                             var useUTF8InOutputfile = moduleDecl.containsUnicodeChar || (this.emitOptions.emitComments && moduleDecl.containsUnicodeCharInComment);
                             this.outfile = this.createFile(this.emittingFileName, useUTF8InOutputfile);
+                            this.writeToOutput('"use strict";');
                             if(prevSourceMapper != null) {
                                 this.allSourceMappers = [];
                                 var sourceMappingFile = this.createFile(this.emittingFileName + TypeScript.SourceMapper.MapFileExtension, false);
@@ -5551,7 +5549,7 @@ var TypeScript;
                             this.recordSourceMappingNameEnd();
                         }
                         this.recordSourceMappingEnd(moduleDecl.endingToken);
-                        this.writeToOutput(")(this." + this.moduleName + " || (this." + this.moduleName + " = {}));");
+                        this.writeToOutput(")(this." + this.moduleName + " || ((this." + this.moduleName + " = {})));");
                     } else if(isExported || temp == EmitContainer.Prog) {
                         var dotMod = svModuleName != "" ? (parentIsDynamic ? "exports" : svModuleName) + "." : svModuleName;
                         this.writeToOutput("}");
@@ -5559,14 +5557,14 @@ var TypeScript;
                             this.recordSourceMappingNameEnd();
                         }
                         this.recordSourceMappingEnd(moduleDecl.endingToken);
-                        this.writeToOutput(")(" + dotMod + this.moduleName + " || (" + dotMod + this.moduleName + " = {}));");
+                        this.writeToOutput(")(" + dotMod + this.moduleName + " = (" + dotMod + this.moduleName + " || {}));");
                     } else if(!isExported && temp != EmitContainer.Prog) {
                         this.writeToOutput("}");
                         if(!isWholeFile) {
                             this.recordSourceMappingNameEnd();
                         }
                         this.recordSourceMappingEnd(moduleDecl.endingToken);
-                        this.writeToOutput(")(" + this.moduleName + " || (" + this.moduleName + " = {}));");
+                        this.writeToOutput(")(" + this.moduleName + " || ((" + this.moduleName + " = {})));");
                     } else {
                         this.writeToOutput("}");
                         if(!isWholeFile) {
@@ -6162,6 +6160,10 @@ var TypeScript;
                         if(members[i].nodeType == TypeScript.NodeType.VarDecl) {
                             var varDecl = members[i];
                             if(!TypeScript.hasFlag(varDecl.varFlags, TypeScript.VarFlags.Static) && varDecl.init) {
+                                var varDeclType = varDecl.init.type;
+                                if(varDeclType.isDouble() || varDeclType.isBoolean() || varDeclType.isString() || varDeclType.isNull()) {
+                                    continue;
+                                }
                                 this.writeLineToOutput("");
                                 this.emitIndent();
                                 this.emitJavascriptVarDecl(varDecl, TypeScript.TokenID.Tilde);
@@ -6208,6 +6210,16 @@ var TypeScript;
                                 this.emitIndent();
                                 this.recordSourceMappingStart(varDecl);
                                 this.writeToOutput(classDecl.name.actualText + "." + varDecl.id.actualText + " = ");
+                                this.emitJavascript(varDecl.init, TypeScript.TokenID.Equals, false);
+                                this.writeLineToOutput(";");
+                                this.recordSourceMappingEnd(varDecl);
+                            }
+                        } else if(varDecl.init) {
+                            var varDeclType = varDecl.init.type;
+                            if(varDeclType.isDouble() || varDeclType.isBoolean() || varDeclType.isString() || varDeclType.isNull()) {
+                                this.emitIndent();
+                                this.recordSourceMappingStart(varDecl);
+                                this.writeToOutput(classDecl.name.actualText + ".prototype." + varDecl.id.actualText + " = ");
                                 this.emitJavascript(varDecl.init, TypeScript.TokenID.Equals, false);
                                 this.writeLineToOutput(";");
                                 this.recordSourceMappingEnd(varDecl);
@@ -6289,7 +6301,7 @@ var TypeScript;
         };
         Emitter.prototype.emitThis = function () {
             if(this.thisFnc && !this.thisFnc.isMethod() && (!this.thisFnc.isConstructor)) {
-                this.writeToOutput("_this");
+                this.writeToOutput("$$this");
             } else {
                 this.writeToOutput("this");
             }
@@ -6758,7 +6770,7 @@ var TypeScript;
             this.pushDeclLists();
             var members = new TypeScript.ASTList();
             members.minChar = membersMinChar;
-            var mapDecl = new TypeScript.VarDecl(new TypeScript.Identifier("_map"), 0);
+            var mapDecl = new TypeScript.VarDecl(new TypeScript.Identifier("$map"), 0);
             mapDecl.varFlags |= TypeScript.VarFlags.Exported;
             mapDecl.varFlags |= TypeScript.VarFlags.Private;
             mapDecl.varFlags |= (TypeScript.VarFlags.Property | TypeScript.VarFlags.Public);
@@ -6807,7 +6819,7 @@ var TypeScript;
                         memberValue = new TypeScript.NumberLiteral(nextValue, nextValue.toString());
                         lastValue = memberValue;
                     }
-                    var map = new TypeScript.BinaryExpression(TypeScript.NodeType.Asg, new TypeScript.BinaryExpression(TypeScript.NodeType.Index, new TypeScript.Identifier("_map"), memberValue), new TypeScript.StringLiteral('"' + memberName.actualText + '"'));
+                    var map = new TypeScript.BinaryExpression(TypeScript.NodeType.Asg, new TypeScript.BinaryExpression(TypeScript.NodeType.Index, new TypeScript.Identifier("$map"), memberValue), new TypeScript.StringLiteral('"' + memberName.actualText + '"'));
                     members.append(map);
                 }
                 var member = new TypeScript.VarDecl(memberName, this.nestingLevel);

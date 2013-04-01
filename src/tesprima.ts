@@ -13,21 +13,6 @@ module TypedEsprima {
         tolerant?: bool;
     }
 
-    function filterGroup(node) {
-        var name;
-        delete node.groupRange;
-        delete node.groupLoc;
-        for (name in node) {
-            if (node.hasOwnProperty(name)) {
-                if (typeof node[name] === 'object' && node[name]) {
-                    if (node[name].type || (node[name].length && !node[name].substr)) {
-                        filterGroup(node[name]);
-                    }
-                }
-            }
-        }
-    }
-
     export function tokenize(code:string, options:Options = {}) {
         if (typeof code !== 'string') {
             code = String(code);
@@ -131,10 +116,6 @@ module TypedEsprima {
             }
             if (typeof lexer.errors !== 'undefined') {
                 program.errors = lexer.errors;
-            }
-            if (options.range || options.loc) {
-                // TODO fix this.
-                filterGroup(program.body);
             }
         } catch (e) {
             throw e;

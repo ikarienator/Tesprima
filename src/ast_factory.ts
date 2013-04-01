@@ -84,7 +84,7 @@ module TypedEsprima {
             };
         }
 
-        createDoWhileStatement(body:Statement[], test:Expression):DoWhileStatement {
+        createDoWhileStatement(body:Statement, test:Expression):DoWhileStatement {
             return {
                 "type": Syntax.DoWhileStatement,
                 "body": body,
@@ -130,7 +130,7 @@ module TypedEsprima {
         }
 
 
-        createFunctionDeclaration(id:Identifier, params:Identifier[], defaults:Expression[], body:Statement[]):FunctionDeclaration {
+        createFunctionDeclaration(id:Identifier, params:Identifier[], defaults:Expression[], body:BlockStatement):FunctionDeclaration {
             return {
                 "type": Syntax.FunctionDeclaration,
                 "id": id,
@@ -144,7 +144,7 @@ module TypedEsprima {
         }
 
 
-        createFunctionExpression(id:Identifier, params:Identifier[], defaults:Expression[], body:Statement[]):FunctionExpression {
+        createFunctionExpression(id:Identifier, params:Identifier[], defaults:Expression[], body:BlockStatement):FunctionExpression {
             return {
                 "type": Syntax.FunctionExpression,
                 "id": id,
@@ -306,7 +306,7 @@ module TypedEsprima {
         }
 
 
-        createTryStatement(block:Statement[], guardedHandlers:any[], handlers:CatchClause[], finalizer:Statement[]):TryStatement {
+        createTryStatement(block:BlockStatement, guardedHandlers:any[], handlers:CatchClause[], finalizer:BlockStatement):TryStatement {
             return {
                 "type": Syntax.TryStatement,
                 "block": block,
@@ -361,7 +361,7 @@ module TypedEsprima {
         }
 
 
-        createWithStatement(object:Expression, body:Statement[]):WithStatement {
+        createWithStatement(object:Expression, body:BlockStatement):WithStatement {
             return {
                 "type": Syntax.WithStatement,
                 "object": object,

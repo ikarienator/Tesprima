@@ -7,6 +7,16 @@ module TypedEsprima {
         startColumn: number;
     }
 
+    interface SuffixExpressionInfo {
+        // The start range of the `left` expression.
+        startRange?: number;
+        lineNumber?: number;
+        columnNumber?: number;
+        left: Expression;
+        operator: string;
+        precedence: number;
+    }
+
     export class Parser {
         allowIn:bool = true;
         labelSet:{[key:string]:bool;} = {};
@@ -14,7 +24,7 @@ module TypedEsprima {
         inIteration:bool = false;
         inSwitch:bool = false;
 
-        postProcess:(node:TypedEsprima.Node)=>TypedEsprima.Node = (node) => node;
+        postProcess:(node:TypedEsprima.ASTNode)=>TypedEsprima.ASTNode = (node) => node;
 
         private static PatchingMethods = [
             'parseAssignmentExpression',
@@ -159,7 +169,9 @@ module TypedEsprima {
 
             while (!this.lexer.match('}')) {
                 property = this.parseObjectProperty();
-                if (property === null) continue;
+                if (property === null) {
+                    continue;
+                }
                 if (property.key.type === Syntax.Identifier) {
                     name = (<Identifier>property.key).name;
                 } else {
@@ -335,10 +347,9 @@ module TypedEsprima {
         }
 
         parseLeftHandSideExpressionAllowCall() {
-            var expr, args, property;
+            var args, property;
 
-            expr =
-                this.lexer.matchKeyword('new') ? this.parseNewExpression() : this.parsePrimaryExpression();
+            var expr = this.lexer.matchKeyword('new') ? this.parseNewExpression() : this.parsePrimaryExpression();
 
             while (this.lexer.match('.') || this.lexer.match('[') || this.lexer.match('(')) {
                 if (this.lexer.match('(')) {
@@ -446,7 +457,7 @@ module TypedEsprima {
             return this.parsePostfixExpression();
         }
 
-        binaryPrecedence(token, allowIn) {
+        binaryPrecedence(token:Token, allowIn:bool):number {
             var prec = 0;
 
             if (token.type !== TokenType.Punctuator &&
@@ -526,56 +537,121 @@ module TypedEsprima {
         // 11.10 Binary Bitwise Operators
         // 11.11 Binary Logical Operators
         parseBinaryExpression() {
-            var expr, token, prec, previousAllowIn, stack, right, operator, left, i;
-
-            previousAllowIn = this.allowIn;
+            var previousAllowIn = this.allowIn,
+                lexer = this.lexer;
             this.allowIn = true;
 
-            expr = this.parseUnaryExpression();
-
-            token = this.lexer.lookahead;
-            prec = this.binaryPrecedence(token, previousAllowIn);
-            if (prec === 0) {
-                return expr;
+            var startRange, lineNumber, columnNumber;
+            if (lexer.includeRange) {
+                startRange = lexer.lookahead.range[0];
             }
-            token.prec = prec;
-            this.lexer.lex();
+            if (lexer.includeLocation) {
+                lineNumber = lexer.lookahead.lineNumber;
+                columnNumber = lexer.lookahead.range[0] - lexer.lookahead.lineStart;
+            }
+            var newItem:SuffixExpressionInfo = {
+                left: this.parseUnaryExpression(),
+                operator: lexer.lookahead.value,
+                precedence: this.binaryPrecedence(lexer.lookahead, previousAllowIn)
+            };
+            if (newItem.precedence === 0) {
+                return newItem.left;
+            }
 
-            stack = [expr, token, this.parseUnaryExpression()];
+            var suffixStack:SuffixExpressionInfo[] = [newItem];
+            if (lexer.includeRange) {
+                newItem.startRange = startRange;
+            }
+            if (lexer.includeLocation) {
+                newItem.lineNumber = lineNumber;
+                newItem.columnNumber = columnNumber;
+            }
+            lexer.lex();
+            if (lexer.includeRange) {
+                startRange = lexer.lookahead.range[0];
+            }
+            if (lexer.includeLocation) {
+                lineNumber = lexer.lookahead.lineNumber;
+                columnNumber = lexer.lookahead.range[0] - lexer.lookahead.lineStart;
+            }
+            var right = this.parseUnaryExpression(),
+                prec:number;
 
-            while ((prec = this.binaryPrecedence(this.lexer.lookahead, previousAllowIn)) > 0) {
+            while ((prec = this.binaryPrecedence(lexer.lookahead, previousAllowIn)) > 0) {
 
                 // Reduce: make a binary expression from the three topmost entries.
-                while ((stack.length > 2) && (prec <= stack[stack.length - 2].prec)) {
-                    right = stack.pop();
-                    operator = stack.pop().value;
-                    left = stack.pop();
-                    stack.push(this.factory.createBinaryExpression(operator, left, right));
+                while ((suffixStack.length > 0) && (prec <= suffixStack[suffixStack.length - 1].precedence)) {
+                    var item = suffixStack.pop();
+                    right = this.factory.createBinaryExpression(item.operator, item.left, right);
+                    if (lexer.includeRange) {
+                        right.range = [
+                            item.startRange,
+                            lexer.index
+                        ];
+                        startRange = item.startRange;
+                    }
+                    if (lexer.includeLocation) {
+                        right.loc = {
+                            start: {
+                                line: item.lineNumber,
+                                column: item.columnNumber
+                            },
+                            end: {
+                                line: lexer.lineNumber,
+                                column: lexer.index - lexer.lineStart
+                            }
+                        };
+                        lineNumber = item.lineNumber;
+                        columnNumber = item.columnNumber;
+                    }
                 }
-
+                var newItem:SuffixExpressionInfo = {
+                    operator: lexer.lex().value,
+                    left: right,
+                    precedence: prec
+                };
                 // Shift.
-                token = this.lexer.lex();
-                token.prec = prec;
-                stack.push(token);
-                stack.push(this.parseUnaryExpression());
+                suffixStack.push(newItem);
+                if (lexer.includeRange) {
+                    newItem.startRange = startRange;
+                    startRange = lexer.lookahead.range[0];
+                }
+                if (lexer.includeLocation) {
+                    newItem.lineNumber = lineNumber;
+                    newItem.columnNumber = columnNumber;
+                    lineNumber = lexer.lookahead.lineNumber;
+                    columnNumber = lexer.lookahead.range[0] - lexer.lookahead.lineStart;
+                }
+                right = this.parseUnaryExpression();
             }
 
             this.allowIn = previousAllowIn;
 
             // Final reduce to clean-up the stack.
-            i = stack.length - 1;
-            expr = stack[i];
-            while (i > 1) {
-                expr = this.factory.createBinaryExpression(stack[i - 1].value, stack[i - 2],
-                    expr);
-                i -= 2;
+            while (suffixStack.length) {
+                item = suffixStack.pop();
+                right = this.factory.createBinaryExpression(item.operator, item.left, right);
+                if (lexer.includeRange) {
+                    right.range = [item.startRange, lexer.index];
+                }
+                if (lexer.includeLocation) {
+                    right.loc = {
+                        start: {
+                            line: item.lineNumber,
+                            column: item.columnNumber
+                        },
+                        end: {
+                            line: lexer.lineNumber,
+                            column: lexer.index - lexer.lineStart
+                        }
+                    };
+                }
             }
-            return expr;
+            return right;
         }
 
 
-// 11.12 Conditional Operator
-
+        // 11.12 Conditional Operator
         parseConditionalExpression() {
             var expr, previousAllowIn, consequent, alternate;
 
@@ -596,7 +672,7 @@ module TypedEsprima {
             return expr;
         }
 
-// 11.13 Assignment Operators
+        // 11.13 Assignment Operators
         parseAssignmentExpression() {
             var token, left, right;
 
@@ -623,8 +699,7 @@ module TypedEsprima {
             return left;
         }
 
-// 11.14 Comma Operator
-
+        // 11.14 Comma Operator
         parseExpression() {
             var expr = this.parseAssignmentExpression();
 
@@ -643,8 +718,7 @@ module TypedEsprima {
             return expr;
         }
 
-// 12.1 Block
-
+        // 12.1 Block
         parseStatementList() {
             var list = [],
                 statement;
@@ -675,8 +749,7 @@ module TypedEsprima {
             return this.factory.createBlockStatement(block);
         }
 
-// 12.2 Variable Statement
-
+        // 12.2 Variable Statement
         parseVariableIdentifier():Identifier {
             var token = this.lexer.lex();
 
@@ -733,10 +806,10 @@ module TypedEsprima {
             return this.factory.createVariableDeclaration(declarations, 'var');
         }
 
-// kind may be `const` or `let`
-// Both are experimental and not in the specification yet.
-// see http://wiki.ecmascript.org/doku.php?id=harmony:const
-// and http://wiki.ecmascript.org/doku.php?id=harmony:let
+        // kind may be `const` or `let`
+        // Both are experimental and not in the specification yet.
+        // see http://wiki.ecmascript.org/doku.php?id=harmony:const
+        // and http://wiki.ecmascript.org/doku.php?id=harmony:let
         parseConstLetDeclaration(kind:string):VariableDeclaration {
             this.lexer.expectKeyword(kind);
 
@@ -747,23 +820,20 @@ module TypedEsprima {
             return this.factory.createVariableDeclaration(declarations, kind);
         }
 
-// 12.3 Empty Statement
-
+        // 12.3 Empty Statement
         parseEmptyStatement():EmptyStatement {
             this.lexer.expect(';');
             return this.factory.createEmptyStatement();
         }
 
-// 12.4 Expression Statement
-
+        // 12.4 Expression Statement
         parseExpressionStatement() {
             var expr = this.parseExpression();
             this.lexer.consumeSemicolon();
             return this.factory.createExpressionStatement(expr);
         }
 
-// 12.5 If statement
-
+        // 12.5 If statement
         parseIfStatement() {
             var test, consequent, alternate;
 
@@ -787,26 +857,18 @@ module TypedEsprima {
             return this.factory.createIfStatement(test, consequent, alternate);
         }
 
-// 12.6 Iteration Statements
-
+        // 12.6 Iteration Statements
         parseDoWhileStatement() {
-            var body, test, oldInIteration;
-
             this.lexer.expectKeyword('do');
+            var oldInIteration = this.inIteration;
 
-            oldInIteration = this.inIteration;
             this.inIteration = true;
-
-            body = this.parseStatement();
-
+            var body = this.parseStatement();
             this.inIteration = oldInIteration;
 
             this.lexer.expectKeyword('while');
-
             this.lexer.expect('(');
-
-            test = this.parseExpression();
-
+            var test = this.parseExpression();
             this.lexer.expect(')');
 
             if (this.lexer.match(';')) {
@@ -915,8 +977,7 @@ module TypedEsprima {
             return this.factory.createForInStatement(left, right, body);
         }
 
-// 12.7 The continue statement
-
+        // 12.7 The continue statement
         parseContinueStatement() {
             var label = null, key;
 
@@ -959,8 +1020,7 @@ module TypedEsprima {
             return this.factory.createContinueStatement(label);
         }
 
-// 12.8 The break statement
-
+        // 12.8 The break statement
         parseBreakStatement() {
             var label = null, key;
 
@@ -1003,8 +1063,7 @@ module TypedEsprima {
             return this.factory.createBreakStatement(label);
         }
 
-// 12.9 The return statement
-
+        // 12.9 The return statement
         parseReturnStatement() {
             var argument = null;
 
@@ -1038,8 +1097,7 @@ module TypedEsprima {
             return this.factory.createReturnStatement(argument);
         }
 
-// 12.10 The with statement
-
+        // 12.10 The with statement
         parseWithStatement() {
             var object, body;
 
@@ -1060,8 +1118,7 @@ module TypedEsprima {
             return this.factory.createWithStatement(object, body);
         }
 
-// 12.10 The swith statement
-
+        // 12.10 The swith statement
         parseSwitchCase() {
             var test,
                 consequent = [],
@@ -1131,8 +1188,7 @@ module TypedEsprima {
             return this.factory.createSwitchStatement(discriminant, cases);
         }
 
-// 12.13 The throw statement
-
+        // 12.13 The throw statement
         parseThrowStatement() {
             var argument;
 
@@ -1149,8 +1205,7 @@ module TypedEsprima {
             return this.factory.createThrowStatement(argument);
         }
 
-// 12.14 The try statement
-
+        // 12.14 The try statement
         parseCatchClause() {
             var param, body;
 
@@ -1196,8 +1251,7 @@ module TypedEsprima {
             return this.factory.createTryStatement(block, [], handlers, finalizer);
         }
 
-// 12.15 The debugger statement
-
+        // 12.15 The debugger statement
         parseDebuggerStatement() {
             this.lexer.expectKeyword('debugger');
 
@@ -1206,8 +1260,7 @@ module TypedEsprima {
             return this.factory.createDebuggerStatement();
         }
 
-// 12 Statements
-
+        // 12 Statements
         parseStatement():Statement {
             var type = this.lexer.lookahead.type,
                 expr,
@@ -1288,10 +1341,9 @@ module TypedEsprima {
             return this.factory.createExpressionStatement(expr);
         }
 
-// 13 Function Definition
-
-        parseFunctionSourceElements() {
-            var sourceElement, sourceElements = [], token, directive, firstRestricted,
+        // 13 Function Definition
+        parseFunctionSourceElements():BlockStatement {
+            var sourceElement:Statement, sourceElements = [], token:StringLiteralToken, directive, firstRestricted,
                 oldLabelSet, oldInIteration, oldInSwitch, oldInFunctionBody;
 
             this.lexer.expect('{');
@@ -1300,13 +1352,15 @@ module TypedEsprima {
                 if (this.lexer.lookahead.type !== TokenType.StringLiteral) {
                     break;
                 }
-                token = this.lexer.lookahead;
+                token = <StringLiteralToken> this.lexer.lookahead;
 
                 sourceElement = this.parseSourceElement();
                 sourceElements.push(sourceElement);
-                if (sourceElement.expression.type !== Syntax.Literal) {
-                    // this is not directive
-                    break;
+                if ('expression' in sourceElement) {
+                    if (sourceElement['expression'].type !== Syntax.Literal) {
+                        // this is not directive
+                        break;
+                    }
                 }
                 directive = this.lexer.slice(token.range[0] + 1, token.range[1] - 1);
                 if (directive === 'use strict') {
@@ -1354,14 +1408,18 @@ module TypedEsprima {
         }
 
         parseParams(firstRestricted) {
-            var param, params = [], token, stricted, paramSet, key, message;
+            var params:Identifier[] = [],
+                stricted:Token,
+                paramSet:{[key:string]:bool;},
+                key:string,
+                message:string;
             this.lexer.expect('(');
 
             if (!this.lexer.match(')')) {
                 paramSet = {};
                 while (this.lexer.index < this.lexer.length) {
-                    token = this.lexer.lookahead;
-                    param = this.parseVariableIdentifier();
+                    var token = this.lexer.lookahead;
+                    var param = this.parseVariableIdentifier();
                     key = '$' + token.value;
                     if (this.lexer.strict) {
                         if (this.lexer.isRestrictedWord(token.value)) {
@@ -1404,36 +1462,35 @@ module TypedEsprima {
         }
 
         parseFunctionDeclaration():FunctionDeclaration {
-            var id, params = [
-            ], body, token, stricted, tmp, firstRestricted, message, previousStrict;
+            var params:Identifier[] = [];
 
             this.lexer.expectKeyword('function');
-            token = this.lexer.lookahead;
-            id = this.parseVariableIdentifier();
+            var token = this.lexer.lookahead;
+            var id = this.parseVariableIdentifier();
             if (this.lexer.strict) {
                 if (this.lexer.isRestrictedWord(token.value)) {
                     this.lexer.throwErrorTolerant(token, Messages.StrictFunctionName);
                 }
             } else {
                 if (this.lexer.isRestrictedWord(token.value)) {
-                    firstRestricted = token;
-                    message = Messages.StrictFunctionName;
+                    var firstRestricted = token;
+                    var message = Messages.StrictFunctionName;
                 } else if (this.lexer.isStrictModeReservedWord(token.value)) {
                     firstRestricted = token;
                     message = Messages.StrictReservedWord;
                 }
             }
 
-            tmp = this.parseParams(firstRestricted);
+            var tmp = this.parseParams(firstRestricted);
             params = tmp.params;
-            stricted = tmp.stricted;
+            var stricted = tmp.stricted;
             firstRestricted = tmp.firstRestricted;
             if (tmp.message) {
                 message = tmp.message;
             }
 
-            previousStrict = this.lexer.strict;
-            body = this.parseFunctionSourceElements();
+            var previousStrict = this.lexer.strict;
+            var body = this.parseFunctionSourceElements();
             if (this.lexer.strict && firstRestricted) {
                 this.lexer.throwError(firstRestricted, message);
             }
@@ -1490,8 +1547,7 @@ module TypedEsprima {
             return this.factory.createFunctionExpression(id, params, [], body);
         }
 
-// 14 Program
-
+        // 14 Program
         parseSourceElement():Statement {
             if (this.lexer.lookahead.type === TokenType.Keyword) {
                 switch (this.lexer.lookahead.value) {
@@ -1556,7 +1612,7 @@ module TypedEsprima {
             return this.factory.createProgram(body);
         }
 
-        endMarker(startRange:number, startLine:number, startColumn:number, node:Expression) {
+        endMarker(startRange:number, startLine:number, startColumn:number, node:ASTNode) {
             if (this.lexer.includeRange && typeof node.range === 'undefined') {
                 node.range = [startRange, this.lexer.index];
             }
@@ -1575,21 +1631,6 @@ module TypedEsprima {
             }
         }
 
-        endMarkerGroup(startRange:number, startLine:number, startColumn:number, expr:Expression) {
-            expr.groupRange = [startRange, this.lexer.index];
-            expr.groupLoc = {
-                start: {
-                    line: startLine,
-                    column: startColumn
-                },
-                end: {
-                    line: this.lexer.lineNumber,
-                    column: this.lexer.index - this.lexer.lineStart
-                }
-            };
-            this.postProcess(expr);
-        }
-
         trackGroupExpression() {
             this.lexer.skipComment();
 
@@ -1599,7 +1640,7 @@ module TypedEsprima {
             this.lexer.expect('(');
             var expr = this.parseExpression();
             this.lexer.expect(')');
-            this.endMarkerGroup(startRange, startLine, startColumn, expr);
+            this.endMarker(startRange, startLine, startColumn, expr);
             return expr;
         }
 
@@ -1652,10 +1693,10 @@ module TypedEsprima {
             return expr;
         }
 
-        wrapTrackingFunction(range:bool, loc:bool) {
+        wrapTrackingFunction(includeRange:bool, includeLocation:bool) {
             return (parseFunction:Function):Function => {
 
-                function isBinary(node:Node):bool {
+                function isBinary(node:TypedEsprima.ASTNode):bool {
                     return node.type === Syntax.LogicalExpression ||
                         node.type === Syntax.BinaryExpression;
                 }
@@ -1670,42 +1711,30 @@ module TypedEsprima {
                         visit(<BinaryExpression>node.right);
                     }
 
-                    if (range) {
-                        if (node.left.groupRange || node.right.groupRange) {
-                            start = node.left.groupRange ? node.left.groupRange[0] : node.left.range[0];
-                            end = node.right.groupRange ? node.right.groupRange[1] : node.right.range[1];
-                            node.range = [start, end];
-                        } else if (typeof node.range === 'undefined') {
+                    if (includeRange) {
+                        if (typeof node.range === 'undefined') {
                             start = node.left.range[0];
                             end = node.right.range[1];
                             node.range = [start, end];
                         }
                     }
-                    if (loc) {
-                        if (node.left.groupLoc || node.right.groupLoc) {
-                            start = node.left.groupLoc ? node.left.groupLoc.start : node.left.loc.start;
-                            end = node.right.groupLoc ? node.right.groupLoc.end : node.right.loc.end;
-                            node.loc = {
-                                start: start,
-                                end: end
-                            };
-                            node = <BinaryExpression> this.postProcess(node);
-                        } else if (typeof node.loc === 'undefined') {
+                    if (includeLocation) {
+                        if (typeof node.loc === 'undefined') {
                             node.loc = {
                                 start: node.left.loc.start,
                                 end: node.right.loc.end
                             };
-                            node = <BinaryExpression> this.postProcess(node);
                         }
+                        node = <BinaryExpression> this.postProcess(node);
                     }
-                }
+                };
 
                 return () => {
                     this.lexer.skipComment();
                     var startRange = this.lexer.index,
                         startLine = this.lexer.lineNumber,
                         startColumn = this.lexer.index - this.lexer.lineStart;
-                    var node = <Node> parseFunction.apply(this, arguments);
+                    var node = <TypedEsprima.ASTNode> parseFunction.apply(this, arguments);
                     this.endMarker(startRange, startLine, startColumn, node);
                     if (isBinary(node)) {
                         visit(<BinaryExpression> node);
