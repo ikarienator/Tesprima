@@ -1,4 +1,4 @@
-TEsprima is a JavaScript parser written in TypeScript adapted from [Esprima](https://github.com/ariya/esprima)
+TypedEsprima is a JavaScript parser written in TypeScript adapted from [Esprima](https://github.com/ariya/esprima)
 
 Features
 --------
