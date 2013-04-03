@@ -1,16 +1,4 @@
-(function (root, factory) {
-    'use strict';
 
-    // Universal Module Definition (UMD) to support AMD, CommonJS/Node.js,
-    // Rhino, and plain browser loading.
-    if (typeof define === 'function' && define.amd) {
-        define(['exports'], factory);
-    } else if (typeof exports !== 'undefined') {
-        factory(exports);
-    } else {
-        factory((root.esprima = {}));
-    }
-})(this, function (exports) {
     exports.version = TypedEsprima.version;
     exports.tokenize = TypedEsprima.tokenize;
     exports.parse = TypedEsprima.parse;
@@ -34,4 +22,3 @@
         return types;
     }());
 });
-//@ sourceMappingURL=tesprima.js.map
