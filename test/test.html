@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Unit Test</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="./third_party/mocha.css" />
+    <script src="./third_party/mocha.js"></script>
+    <script src="./third_party/expect.js"></script>
+    <script src="./third_party/esprima.js"></script>
+    <script>mocha.setup('bdd')</script>
+    <script src="../tesprima.js"></script>
+    <script src="test.spec.js"></script>
+    <script>
+        function assert(expr, msg) {
+            if (!expr) throw new Error(msg || 'failed');
+        }
+    </script>
+    <script>
+        onload = function(){
+            var runner = mocha.run();
+            runner.globals(['TypedEsprima']);
+        };
+    </script>
+</head>
+<body>
+<h1>Unit tests of Typed Esprima</h1>
+<div id="mocha"></div>
+</body>
+</html>

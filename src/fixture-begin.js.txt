@@ -8,6 +8,6 @@
     } else if (typeof exports !== 'undefined') {
         factory(exports);
     } else {
-        factory((root.epsrima = {}));
+        factory((root.TypedEsprima = {}));
     }
 })(this, function (exports) {
